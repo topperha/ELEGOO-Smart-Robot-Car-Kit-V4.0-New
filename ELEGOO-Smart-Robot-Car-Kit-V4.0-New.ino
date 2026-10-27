@@ -44,7 +44,6 @@ void loop() {
     // Update sensor data and process inputs / 更新传感器数据并处理输入
     applicationFunctionSet.updateSensorData();
     applicationFunctionSet.processKeyCommand();
-    applicationFunctionSet.processIRCommand();
     
     // Update timers and execute current state / 更新定时器并执行当前状态
     applicationFunctionSet.updateTimer();
@@ -80,8 +79,7 @@ void serialEvent() {
             // Prevent buffer overflow / 防止缓冲区溢出
             if (message.length() >= MAX_MSG_LENGTH - 1) {
                 return;
-            }
-            
+            }            
             message += character;
         }
     }
@@ -92,7 +90,7 @@ void serialEvent() {
     }
 
     // Phase 4: Parse JSON and execute command / 阶段 4：解析 JSON 并执行命令
-    StaticJsonDocument<100> jsonDocument;
+    StaticJsonDocument<256> jsonDocument;
     DeserializationError error = deserializeJson(jsonDocument, message);
     
     if (error) {

@@ -40,10 +40,8 @@ public:
     void SmartRobotCarMotionControl(CarDirection direction,uint8_t speed);
     void SmartRobotCarLinearMotionControl(CarDirection direction, CarDirection predir,uint8_t speed);
     
-    // Functional mode handling interfaces / 功能模式处理接口
+    // Functional mode handling interfaces / 功能模式处理接口 (Removed except HandleTrackingControl)
     void HandleTrackingControl();                    // Line tracking mode / 巡线模式
-    void HandleObstacleAvoidance();                  // Obstacle avoidance mode / 避障模式
-    void HandleFollowMode();                         // Follow mode / 跟随模式
     void UpdateTargetYAW();
 
     uint16_t TrackingDetection_THRESHOLD = 400;      // Black/White line threshold / 黑白线阈值

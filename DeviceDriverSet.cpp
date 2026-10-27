@@ -50,9 +50,12 @@ void DeviceDriverSet_MPU6050::calibration(void)
 
 void DeviceDriverSet_MPU6050::getEulerAngles(float *Yaw)
 {
-  unsigned long now = millis();           //Record the current time(ms) / 记录当前时间(ms)
-  dt = (now - lastTime) / 1000.0;         //Caculate the derivative time(s) / 计算微分时间(s)
-  lastTime = now;                         //Record the last sampling time(ms) / 记录最后一次采样时间(ms)
+  unsigned long now = millis();
+  if (lastTime == 0) lastTime = now; // Ersten Sprung verhindern
+  dt = (now - lastTime) / 1000.0;
+  if (dt > 0.2) dt = 0.01; // Max 200ms zulassen
+  lastTime = now;
+
   gz = accelgyro.getRotationZ();          //Read the raw values of the six axes / 读取六轴原始值
   float gyroz = -(gz - gzo) / 131.0 * dt; //z-axis angular velocity / Z 轴角速度
   if (fabs(gyroz) < 0.05)                 //Clear instant zero drift signal / 清除瞬时零漂信号
