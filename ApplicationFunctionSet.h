@@ -170,6 +170,7 @@ private:
         uint8_t speedLeft;      ///< Motor left speed / 左电机速度
         bool isInitialized;  ///< Whether motor state has been initialized / 电机状态是否已初始化
     } motorState;
+    bool isCustomColor = false;
 
 public:
     // ========== Public Constants / 公共常量 ==========

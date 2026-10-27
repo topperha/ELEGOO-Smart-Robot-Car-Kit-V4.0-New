@@ -76,7 +76,8 @@ void ApplicationFunctionSet::checkState() {
     static unsigned long lastRgbUpdate = 0;
     if (millis() - lastRgbUpdate > 100) { // Update LEDs every 100ms / 每 100ms 更新一次 LED
         // Update RGB LED based on state and voltage / 根据状态和电压更新 RGB LED
-        rgbControl.update(voltageDetectionStatus, currentState);
+        if (!isCustomColor)
+            rgbControl.update(voltageDetectionStatus, currentState);
         lastRgbUpdate = millis();
     }
     
@@ -259,9 +260,20 @@ void ApplicationFunctionSet::analyzeSerialData(const JsonDocument &doc) {
             break;
         case 5: // Servo control / 舵机控制
             {
+                //currentState = State::DoNothing;
+                //uint8_t angle = doc["D2"].as<uint8_t>() / 10;
+                //AppServo.control(angle, 0);
+                //sendCommandResponse(true);
+
                 currentState = State::DoNothing;
-                uint8_t angle = doc["D2"].as<uint8_t>() / 10;
-                AppServo.control(angle, 0);
+                uint8_t rawD2 = doc["D2"].as<uint8_t>();
+                
+                // Winkel (0 bis 180) sauber auf den Bereich 1 bis 17 umrechnen
+                uint8_t angle = map(rawD2, 0, 180, 1, 17);
+                angle = constrain(angle, 1, 17);
+
+                // Kanal 1 ist der Z-Achsen Kamera-Servo (Links/Rechts)
+                AppServo.controlMultiple(1, angle); 
                 sendCommandResponse(true);
             }
             break;
@@ -311,6 +323,24 @@ void ApplicationFunctionSet::analyzeSerialData(const JsonDocument &doc) {
                 isIrRobotControl = false;
             }
             break;
+
+            case 104: // RGB LED Farbsteuerung aus der App
+                {
+                    uint8_t r = doc["D2"].as<uint8_t>(); // Expliziter 8-Bit-Casting!
+                    uint8_t g = doc["D3"].as<uint8_t>();
+                    uint8_t b = doc["D4"].as<uint8_t>();
+
+                    if (r == 0 && g == 0 && b == 0) {
+                        isCustomColor = false; // Automatikmodus wieder aktivieren
+                        AppRGB_LED.clear();    // LEDs ausschalten
+                    } else {
+                        isCustomColor = true;  // Custom-Farbe sperren
+                        FastLED.setBrightness(255);
+                        AppRGB_LED.SetRBGLED(4, CRGB(r, g, b)); // Alle 4 LEDs auf Wunschfarbe setzen!
+                    }
+                }
+                break;
+
         case 105: // LED brightness adjustment / LED 亮度调整
             {
                 uint8_t adjustment = doc["D1"];
@@ -491,7 +521,7 @@ void ApplicationFunctionSet::clearAllFunctions(State newState) {
     
     // Stop motors and clear LEDs / 停止电机并清除 LED
     motionControl.SmartRobotCarMotionControl(stop_it, 0);
-    AppRGB_LED.clear();
+    if (!isCustomColor) AppRGB_LED.clear();
     carDirection = stop_it;
     currentState = newState;
     isIrRobotControl = false;
