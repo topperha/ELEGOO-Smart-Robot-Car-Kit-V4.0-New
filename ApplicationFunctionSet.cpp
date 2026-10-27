@@ -356,6 +356,26 @@ void ApplicationFunctionSet::analyzeSerialData(const JsonDocument &doc) {
                 sendCommandResponse(false);
             }
             break;
+
+        case 107: // Gyro Telemetrie (Pitch & Roll driftfrei)
+            {
+                float pitch = 0, roll = 0;
+                AppMPU6050.getPitchRoll(&pitch, &roll);
+
+                float tempC = AppMPU6050.getTemperature();
+
+                StaticJsonDocument<120> docResponse;
+                docResponse["H"] = "GYRO";
+                docResponse["D1"] = roll;  // Roll
+                docResponse["D2"] = pitch; // Pitch
+                docResponse["D3"] = 0;     // Kein Kompass -> Yaw bleibt 0
+                docResponse["temp"] = tempC;
+
+                String responseStr;
+                serializeJson(docResponse, responseStr);
+                Serial.println(responseStr);
+            }
+            break;
         case 110: // Clear all functions - do nothing / 清除所有功能 - 不做任何操作
             {
                 clearAllFunctions(State::DoNothing);

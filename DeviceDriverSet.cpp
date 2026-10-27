@@ -66,6 +66,22 @@ void DeviceDriverSet_MPU6050::getEulerAngles(float *Yaw)
   *Yaw = agz;
 }
 
+void DeviceDriverSet_MPU6050::getPitchRoll(float *Pitch, float *Roll)
+{
+  int16_t ax = accelgyro.getAccelerationX();
+  int16_t ay = accelgyro.getAccelerationY();
+  int16_t az = accelgyro.getAccelerationZ();
+
+  // Wegen der um 90° gedrehten Platine: ax = Roll, ay = Pitch
+  *Roll = atan2(-ax, sqrt((long)ay * ay + (long)az * az)) * 180.0 / M_PI;
+  *Pitch = atan2(ay, az) * 180.0 / M_PI;
+}
+
+float DeviceDriverSet_MPU6050::getTemperature() {
+    int16_t rawTemp = accelgyro.getTemperature();
+    return (rawTemp / 340.0) + 36.53;
+}
+
 /*================ RGB LED Driver / RGB LED 驱动 =================*/
 
 /**

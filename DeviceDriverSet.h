@@ -32,6 +32,8 @@ public:
      * @param Yaw Pointer to store the calculated Yaw angle / 用于存储计算出的偏航角的指针
      */
     void getEulerAngles(float *Yaw);
+    void getPitchRoll(float *Pitch, float *Roll);
+    float getTemperature();
 
 public:
     int16_t gz;
