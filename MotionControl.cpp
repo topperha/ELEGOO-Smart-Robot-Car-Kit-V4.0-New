@@ -15,6 +15,10 @@
 #include <avr/wdt.h>
 #include "Utils.h"
 
+#include "ApplicationFunctionSet.h"
+//extern ApplicationFunctionSet applicationFunctionSet; // Zugriff auf das globale Objekt
+
+
 MotionControl::MotionControl(DeviceDriverSet_Motor &motor,
                              DeviceDriverSet_MPU6050 &mpu,
                              DeviceDriverSet_Ultrasonic &ultrasonic,
@@ -40,8 +44,34 @@ MotionControl::MotionControl(DeviceDriverSet_Motor &motor,
  * @param direction The target direction of motion / 目标运动方向
  * @param speed The target speed (PWM value 0-255) / 目标速度 (PWM 值 0-255)
  */
-void MotionControl::SmartRobotCarMotionControl(CarDirection direction,uint8_t speed)
+void MotionControl::SmartRobotCarMotionControl(CarDirection direction, uint8_t speed)
 {
+    // Einstellbare Parameter für den Wandschutz:
+   // 1. Nur bei Vorwärtsfahrt bremsen:
+    bool isForward = (direction == Forward || direction == LeftForward || direction == RightForward);
+    bool isBackward = (direction == Backward || direction == LeftBackward || direction == RightBackward);
+    
+    if (!applicationFunctionSet.isOnGround)
+    {
+        speed = 0;
+    }
+    
+
+    if (isForward) {
+        uint16_t dist = applicationFunctionSet.getCurrentDistance();
+        
+        if (dist <= stopdistance) {
+            // Unter/bei 5 cm: Abrupter Sprung von 30 auf 0 (Sofort-Stopp!)
+            speed = 0;
+        } else if (dist < reducedistance) {
+            // Zwischen 5 cm und 50 cm: Drosselt die Geschwindigkeit stufenlos von 'speed' runter auf 30
+            speed = map(dist, stopdistance, reducedistance, minCrawlSpeed, speed);
+        }
+        
+        // Bei dist >= 50 cm bleibt speed unverändert (volle Fahrt)
+    }
+ 
+
     static CarDirection PreDir = stop_it;
     uint8_t reducedSpeed = (speed > 60) ? (speed - 60) : 0;
 

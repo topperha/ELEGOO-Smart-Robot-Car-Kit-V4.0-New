@@ -102,9 +102,12 @@ void ApplicationFunctionSet::checkState() {
 
 void ApplicationFunctionSet::updateSensorData() {
     static uint32_t lastUpdate = 0;
+    static uint32_t lastUpdateDistance = 0;
+
     static uint8_t lowVoltageCounter = 0;
     
     const uint32_t UPDATE_INTERVAL_MS = 10;
+    const uint32_t UPDATE_INTERVAL_ULTRASONIC_MS = 50;
     const uint8_t LOW_VOLTAGE_THRESHOLD = 50;
 
     uint32_t currentTime = millis();
@@ -112,6 +115,8 @@ void ApplicationFunctionSet::updateSensorData() {
         return;
     }
     lastUpdate = currentTime;
+
+
 
     // Update battery voltage status / 更新电池电压状态
     noInterrupts();
@@ -146,8 +151,40 @@ void ApplicationFunctionSet::updateSensorData() {
     }
 
     isOnGround = !isAboveGround;
+
+
+
+    if (currentTime - lastUpdateDistance >= UPDATE_INTERVAL_ULTRASONIC_MS) {
+        lastUpdateDistance = currentTime;
+        AppULTRASONIC.getDistance(&currentMeasuredDist);  
+        if (currentMeasuredDist < motionControl.reducedistance || !isOnGround)
+        {   
+            if (currentMeasuredDist < motionControl.stopdistance || !isOnGround)   
+            {
+                applicationFunctionSet.isCustomColor = true;
+                AppRGB_LED.SetRBGLED(4, CRGB::Red);
+                distanceTrafficLight = true;
+            }   
+            else
+            {
+                applicationFunctionSet.isCustomColor = true;
+                AppRGB_LED.SetRBGLED(4, CRGB::Yellow);
+                distanceTrafficLight = true;
+            }
+        }
+        else if (distanceTrafficLight && isOnGround)
+        {
+            applicationFunctionSet.isCustomColor = false;
+            distanceTrafficLight = false;
+        }
+
+    }
+
 }
 
+uint16_t ApplicationFunctionSet::getCurrentDistance() const { 
+    return currentMeasuredDist; 
+}
 // ========== Mode Execution Functions / 模式执行功能 ==========
 void ApplicationFunctionSet::executeTrackingMode() {
     if (isOnGround) {
@@ -283,10 +320,14 @@ void ApplicationFunctionSet::analyzeSerialData(const JsonDocument &doc) {
             break;
         case 21: // Ultrasonic sensor status / 超声波传感器状态
             {
-                currentState = State::DoNothing;
+                //currentState = State::DoNothing;
                 getUltrasonicStatus(doc["D1"].as<uint8_t>());
+
+                //Serial.println(currentMeasuredDist);
+
             }
             break;
+            
         case 22: // Line tracking sensor status / 循迹传感器状态
             {
                 currentState = State::DoNothing;
@@ -501,15 +542,16 @@ void ApplicationFunctionSet::handleLightingCommand(const JsonDocument &doc) {
 
 // ========== Sensor Status Functions / 传感器状态功能 ==========
 void ApplicationFunctionSet::getUltrasonicStatus(uint8_t sensorId) {
-    uint16_t distance;
-    AppULTRASONIC.getDistance(&distance);
+    // KORREKTUR: Liest den Wert blitzschnell über deinen Getter aus dem RAM (0 ms Latenz!)
+    uint16_t distance = getCurrentDistance();
+    
     bool obstacleDetected = isWithinRange(distance, 0, OBSTACLE_DETECTION_THRESHOLD);
     
     if (sensorId == 1) {
-        // Return obstacle detection status / 返回障碍物检测状态
+        // Hindernis-Erkennungsstatus zurückgeben
         sendResponseData(obstacleDetected ? "true" : "false");
     } else if (sensorId == 2) {
-        // Return distance data / 返回距离数据
+        // Gemessene Entfernung (z. B. "45") an die App senden
         char distanceStr[10];
         sprintf(distanceStr, "%d", distance);
         sendResponseData(distanceStr);

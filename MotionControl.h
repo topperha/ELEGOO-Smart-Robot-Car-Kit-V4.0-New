@@ -46,6 +46,13 @@ public:
 
     uint16_t TrackingDetection_THRESHOLD = 400;      // Black/White line threshold / 黑白线阈值
 
+    //TODO: Getter?
+    const uint16_t stopdistance = 4;    // Stopp-Abstand in cm
+    const uint16_t reducedistance = 35; // Drossel-Startabstand in cm
+    const uint8_t minCrawlSpeed = 35;   // Minimal-Geschwindigkeit kurz vor dem Stopp    
+
+ 
+
 private:
     // Hardware device references / 硬件设备引用
     DeviceDriverSet_Motor &AppMotor;
@@ -146,7 +153,7 @@ private:
     // Tracking private methods / 巡线私有方法
     void handleLineLost();                         // Handle line lost / 处理丢线
     float calculateErrorByTable(int left, int mid, int right); // Table lookup / 查表法
-    void processPIDControl(float error);
+    void processPIDControl(float error);    
 };
 
 #endif

@@ -132,6 +132,8 @@ public:
     /// Remote control speed setting / 遥控速度设置
     uint8_t rockerCarSpeed = 250;
 
+    uint16_t getCurrentDistance() const;
+    bool isOnGround = true; // TODO:Über getter!
 private:
     // ========== Private Members / 私有成员 ==========
     
@@ -155,7 +157,7 @@ private:
     volatile int trackingDataRight;
 
     /// Robot status flags / 机器人状态标志
-    bool isOnGround = true;
+    //bool isOnGround = true;
     bool voltageDetectionStatus = false;
     bool isIrRobotControl = false;
     
@@ -170,9 +172,13 @@ private:
         uint8_t speedLeft;      ///< Motor left speed / 左电机速度
         bool isInitialized;  ///< Whether motor state has been initialized / 电机状态是否已初始化
     } motorState;
-    bool isCustomColor = false;
+    
+    uint16_t currentMeasuredDist;
+    bool distanceTrafficLight = false;
 
 public:
+    //TODO: Über getter und setter statt public!
+    bool isCustomColor = false;
     // ========== Public Constants / 公共常量 ==========
     
     /// Battery voltage threshold (volts) / 电池电压阈值 (伏特)
