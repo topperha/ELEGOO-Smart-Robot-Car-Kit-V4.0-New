@@ -18,8 +18,6 @@
 enum class State : uint8_t {
     Standby,           ///< Standby mode / 待机模式
     TraceBased,        ///< Line tracking mode / 循迹模式
-    Follow,            ///< Object following mode / 跟随模式
-    ObstacleAvoidance, ///< Obstacle avoidance mode / 避障模式
     Rocker,            ///< Remote control mode / 遥控模式
     DoNothing          ///< Inactive state / 非活动状态
 };
@@ -159,7 +157,6 @@ private:
     /// Robot status flags / 机器人状态标志
     //bool isOnGround = true;
     bool voltageDetectionStatus = false;
-    bool isIrRobotControl = false;
     
     /// Movement direction / 运动方向
     CarDirection carDirection;
@@ -174,7 +171,9 @@ private:
     } motorState;
     
     uint16_t currentMeasuredDist;
-    bool distanceTrafficLight = false;
+    //bool distanceTrafficLight = false;
+    CRGB lightColor;
+    CRGB lightColorLast;
 
 public:
     //TODO: Über getter und setter statt public!

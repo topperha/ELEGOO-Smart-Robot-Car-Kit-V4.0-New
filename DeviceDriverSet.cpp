@@ -8,7 +8,7 @@
 #include "DeviceDriverSet.h"
 // Only enable NEC protocol to save flash and RAM / 仅启用 NEC 协议以节省 Flash 和 RAM
 #define DECODE_NEC
-#include <IRremote.hpp>
+//#include <IRremote.hpp>
 #include <Arduino.h>
 #include "Utils.h"
 #include <MPU6050.h>
@@ -65,7 +65,7 @@ void DeviceDriverSet_MPU6050::getEulerAngles(float *Yaw)
   agz += gyroz; //z-axis angular velocity integral / Z 轴角速度积分
   *Yaw = agz;
 }
-
+/*
 void DeviceDriverSet_MPU6050::getPitchRoll(float *Pitch, float *Roll)
 {
   int16_t ax = accelgyro.getAccelerationX();
@@ -76,10 +76,52 @@ void DeviceDriverSet_MPU6050::getPitchRoll(float *Pitch, float *Roll)
   *Roll = atan2(-ax, sqrt((long)ay * ay + (long)az * az)) * 180.0 / M_PI;
   *Pitch = atan2(ay, az) * 180.0 / M_PI;
 }
+*/
+
+void DeviceDriverSet_MPU6050::getQuaternion(float *qw, float *qx, float *qy, float *qz) {
+    int16_t raw_ax, raw_ay, raw_az;
+    accelgyro.getAcceleration(&raw_ax, &raw_ay, &raw_az);
+
+    float ax = (float)raw_ax;
+    float ay = (float)raw_ay;
+    float az = (float)raw_az;
+
+    float norm = sqrt(ax * ax + ay * ay + az * az);
+    if (norm < 0.001f) norm = 1.0f;
+    ax /= norm;
+    ay /= norm;
+    az /= norm;
+
+    float half_z = (1.0f + az) * 0.5f;
+    if (half_z < 0.0f) half_z = 0.0f;
+
+    if (half_z < 0.00001f) {
+        if (qw) *qw = 0.0f;
+        if (qx) *qx = 1.0f;
+        if (qy) *qy = 0.0f;
+        if (qz) *qz = 0.0f;
+    } else {
+        float w = sqrt(half_z);
+        float scale = (w > 0.00001f) ? (0.5f / w) : 0.0f;
+        if (qw) *qw = w;
+        if (qx) *qx = -ay * scale;
+        if (qy) *qy = ax * scale;
+        if (qz) *qz = 0.0f;
+    }
+
+    // -0.0f Schutz für C++ Float Formatting
+    if (qw && abs(*qw) < 0.0001f) *qw = 0.0f;
+    if (qx && abs(*qx) < 0.0001f) *qx = 0.0f;
+    if (qy && abs(*qy) < 0.0001f) *qy = 0.0f;
+    if (qz && abs(*qz) < 0.0001f) *qz = 0.0f;
+}
 
 float DeviceDriverSet_MPU6050::getTemperature() {
     int16_t rawTemp = accelgyro.getTemperature();
-    return (rawTemp / 340.0) + 36.53;
+    
+    // Offizielle Formel aus dem MPU6050-Datenblatt für Grad Celsius:
+    float tempC = ((float)rawTemp / 340.0f) + 36.53f;
+    return tempC;
 }
 
 /*================ RGB LED Driver / RGB LED 驱动 =================*/
@@ -454,78 +496,3 @@ void DeviceDriverSet_Servo::detachServos()
     servoZ_.detach();
     servoY_.detach();
 }
-
-
-/*================ IR Remote Receiver / 红外遥控接收器 =================*/
-
-/**
- * @brief Initialize the IR receiver / 初始化红外接收器
- * @details Enables the IR receiver to start accepting IR signals / 启用红外接收器以开始接收红外信号
- */
-void DeviceDriverSet_IRrecv::init() 
-{
-    IrReceiver.begin(RECV_PIN, ENABLE_LED_FEEDBACK);
-}
-
-/**
- * @brief Get and decode IR remote control values / 获取并解码红外遥控值
- * @param irValue Pointer to store the decoded IR button value (1-14) / 用于存储解码后的红外按键值 (1-14) 的指针
- * @return True if a valid IR code was received and decoded, false otherwise / 如果接收并解码了有效的红外代码，则返回 True，否则返回 false
- */
-bool DeviceDriverSet_IRrecv::getIRValue(uint8_t *irValue)
-{
-    if (IrReceiver.decode())
-    {
-        
-        uint32_t decodedValue = IrReceiver.decodedIRData.decodedRawData;
-        
-        // Handle repeat codes / 处理重复代码
-        if (IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT) {
-            decodedValue = 0xFFFFFFFF;
-        }
-
-        bool isRecognized = false;
-        static uint8_t preValue = 0;
-
-        // Lookup table for IR codes / 红外代码查找表
-        static const struct {
-            uint32_t rawCode;
-            uint8_t key;
-        } irMap[] = {
-            {A_RECV_UPPER, UP}, {A_RECV_LOWER, DOWN}, {A_RECV_LEFT, LEFT}, {A_RECV_RIGHT, RIGHT},
-            {A_RECV_OK, OK},
-            {A_RECV_1, NUM_1}, {A_RECV_2, NUM_2}, {A_RECV_3, NUM_3},
-            {A_RECV_4, NUM_4}, {A_RECV_5, NUM_5}, {A_RECV_6, NUM_6},
-            {A_RECV_7, NUM_7}, {A_RECV_8, NUM_8}, {A_RECV_9, NUM_9}
-        };
-
-        if (decodedValue == 0xFFFFFFFF) {
-            // Handle repeat code: only valid for direction keys / 处理重复代码：仅对方向键有效
-            if (preValue >= UP && preValue <= RIGHT) {
-                *irValue = preValue;
-                isRecognized = true;
-            } else {
-                preValue = 0; // Invalid repeat / 无效重复
-            }
-        } else {
-            // Search for matching code in the map / 在映射中搜索匹配的代码
-            for (const auto& item : irMap) {
-                if (decodedValue == item.rawCode) {
-                    *irValue = item.key;
-                    preValue = *irValue; // Update preValue for future repeats / 更新 preValue 以供将来的重复使用
-                    isRecognized = true;
-                    break;
-                }
-            }
-            
-            if (!isRecognized) {
-                preValue = 0; // Reset if code not found / 如果未找到代码，则重置
-            }
-        }
-        
-        IrReceiver.resume(); // Ready to receive the next value / 准备接收下一个值
-        return isRecognized;
-    }
-    return false;
-}
-

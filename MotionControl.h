@@ -47,8 +47,8 @@ public:
     uint16_t TrackingDetection_THRESHOLD = 400;      // Black/White line threshold / 黑白线阈值
 
     //TODO: Getter?
-    const uint16_t stopdistance = 4;    // Stopp-Abstand in cm
-    const uint16_t reducedistance = 35; // Drossel-Startabstand in cm
+    const uint16_t stopdistance = 8;    // Stopp-Abstand in cm (Rot)
+    const uint16_t reducedistance = 50; // Drossel-Startabstand in cm (Gelb)
     const uint8_t minCrawlSpeed = 35;   // Minimal-Geschwindigkeit kurz vor dem Stopp    
 
  

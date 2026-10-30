@@ -58,28 +58,6 @@ void RgbControl::update(bool voltageStatus, State carState) {
             return;
         }
     }
-    
-    // Handle state lighting / 处理状态照明
-    switch (carState) {
-        case State::Standby:
-            handleStandbyMode(voltageStatus);
-            break;
-        case State::TraceBased:
-            rgbLedDevice.SetRBGLED(2, CRGB::Green); // Green / 绿色
-            break;
-        case State::Follow:
-            rgbLedDevice.SetRBGLED(2, CRGB::Blue); // Blue / 蓝色
-            break;  
-        case State::ObstacleAvoidance:
-            rgbLedDevice.SetRBGLED(2, CRGB::Yellow); // Yellow / 黄色
-            break;
-        case State::Rocker:
-            rgbLedDevice.SetRBGLED(2, CRGB::Violet); // Violet / 紫罗兰色
-            break;
-        default:
-            setLedColor(CRGB::Black);
-            break;
-    }
 }
 
 // ========== Private Methods / 私有方法 ==========

@@ -32,7 +32,7 @@ public:
      * @param Yaw Pointer to store the calculated Yaw angle / 用于存储计算出的偏航角的指针
      */
     void getEulerAngles(float *Yaw);
-    void getPitchRoll(float *Pitch, float *Roll);
+    void getQuaternion(float* qw, float* qx,float* qy,float* qz);
     float getTemperature();
 
 public:
@@ -277,64 +277,4 @@ private:
     NonBlockingTimer timer_;
     uint8_t targetServo_ = 0;
     unsigned int targetAngle_ = 0;
-};
-
-/**
- * @brief IR Remote Control Class / 红外遥控类
- */
-class DeviceDriverSet_IRrecv {
-
-private:
-#define RECV_PIN 9  ///< IR receiver pin / 红外接收引脚
-
-public:
-    /**
-     * @brief IR Remote Button Codes / 红外遥控按键代码
-     */
-    enum IRKey {
-        NONE = 0,
-        UP = 1,
-        DOWN = 2,
-        LEFT = 3,
-        RIGHT = 4,
-        OK = 5,
-        NUM_1 = 6,
-        NUM_2 = 7,
-        NUM_3 = 8,
-        NUM_4 = 9,
-        NUM_5 = 10,
-        NUM_6 = 11,
-        NUM_7 = 12,
-        NUM_8 = 13,
-        NUM_9 = 14
-    };
-
-    /**
-     * @brief Initialize IR receiver / 初始化红外接收器
-     */
-    void init();
-
-    /**
-     * @brief Get IR remote control value / 获取红外遥控值
-     * @param irValue Pointer to store received IR code / 用于存储接收到的红外代码的指针
-     * @return true if valid IR code received / 如果接收到有效的红外代码返回 true
-     */
-    bool getIRValue(uint8_t* irValue);
-
-private:
-    // IR code definitions for remote control (Updated for IRremote v4 LSB) / 遥控器的红外代码定义（已针对 IRremote v4 LSB 更新）
-    static constexpr unsigned long A_RECV_UPPER = 0xB946FF00;  ///< Up button code / 上键代码
-    static constexpr unsigned long A_RECV_LOWER = 0xEA15FF00;  ///< Down button code / 下键代码
-    static constexpr unsigned long A_RECV_LEFT = 0xBB44FF00;   ///< Left button code / 左键代码
-    static constexpr unsigned long A_RECV_RIGHT = 0xBC43FF00;  ///< Right button code / 右键代码
-    static constexpr unsigned long A_RECV_OK = 0xBF40FF00;     ///< OK button code / OK 键代码
-    static constexpr unsigned long A_RECV_1 = 0xE916FF00;      ///< Button 1 code / 按键 1 代码
-    static constexpr unsigned long A_RECV_2 = 0xE619FF00;      ///< Button 2 code / 按键 2 代码
-    static constexpr unsigned long A_RECV_3 = 0xF20DFF00;      ///< Button 3 code / 按键 3 代码
-    static constexpr unsigned long A_RECV_4 = 0xF30CFF00;      ///< Button 4 code / 按键 4 代码
-    static constexpr unsigned long A_RECV_5 = 0xE718FF00;      ///< Button 5 code / 按键 5 代码
-    static constexpr unsigned long A_RECV_6 = 0xA15EFF00;      ///< Button 6 code / 按键 6 代码
-    static constexpr unsigned long A_RECV_7 = 0xF708FF00;      ///< Button 7 code / 按键 7 代码
-    static constexpr unsigned long A_RECV_8 = 0xE31CFF00;      ///< Button 8 code / 按键 8 代码
-    static constexpr unsigned long A_RECV_9 = 0xA55AFF00;      ///< Button 9 code / 按键 9 代码
 };

@@ -20,7 +20,6 @@ DeviceDriverSet_Voltage AppVoltage;
 DeviceDriverSet_Motor AppMotor;
 DeviceDriverSet_Ultrasonic AppULTRASONIC;
 DeviceDriverSet_Servo AppServo;
-DeviceDriverSet_IRrecv AppIRrecv;
 
 // ========== Control Objects / 控制对象 ==========
 RgbControl rgbControl(AppRGB_LED);
@@ -37,8 +36,7 @@ void ApplicationFunctionSet::init() {
     AppMotor.init();
     AppServo.init(90);
     AppKey.init();
-    AppRGB_LED.init(20);
-    AppIRrecv.init();
+    AppRGB_LED.init(20);    
     AppULTRASONIC.init();
     AppITR20001.init();
 
@@ -59,7 +57,6 @@ void ApplicationFunctionSet::init() {
     // Set initial state / 设置初始状态
     carDirection = stop_it;
     currentState = State::Standby;
-    isIrRobotControl = false;
 }
 
 // ========== Core State Management / 核心状态管理 ==========
@@ -68,7 +65,7 @@ void ApplicationFunctionSet::checkState() {
     // State transition handling / 状态转换处理
     if (currentState != lastState) {
         if (currentState == State::Standby) {
-            AppServo.control(90, 200); // Reset servo to 90 degrees when entering Standby / 进入待机模式时将舵机重置为 90 度
+            //AppServo.control(90, 200); // Reset servo to 90 degrees when entering Standby / 进入待机模式时将舵机重置为 90 度
         }
         lastState = currentState;
     }
@@ -152,34 +149,51 @@ void ApplicationFunctionSet::updateSensorData() {
 
     isOnGround = !isAboveGround;
 
-
-
     if (currentTime - lastUpdateDistance >= UPDATE_INTERVAL_ULTRASONIC_MS) {
         lastUpdateDistance = currentTime;
-        AppULTRASONIC.getDistance(&currentMeasuredDist);  
-        if (currentMeasuredDist < motionControl.reducedistance || !isOnGround)
-        {   
-            if (currentMeasuredDist < motionControl.stopdistance || !isOnGround)   
-            {
-                applicationFunctionSet.isCustomColor = true;
-                AppRGB_LED.SetRBGLED(4, CRGB::Red);
-                distanceTrafficLight = true;
-            }   
-            else
-            {
-                applicationFunctionSet.isCustomColor = true;
-                AppRGB_LED.SetRBGLED(4, CRGB::Yellow);
-                distanceTrafficLight = true;
+        
+        uint16_t newDist = 0;
+        AppULTRASONIC.getDistance(&newDist);
+
+        // Ringpuffer für die letzten N Messungen (z. B. N = 3)
+        const uint8_t N = 5; 
+        static uint16_t distHistory[N] = {0};
+        static uint8_t historyIndex = 0;
+        static bool historyFilled = false;
+
+        // Neue Messung im Ringpuffer abspeichern
+        distHistory[historyIndex] = newDist;
+        historyIndex = (historyIndex + 1) % N;
+        if (historyIndex == 0) historyFilled = true;
+
+        // Kleinsten Wert (Minimum) aus den bisherigen Messungen ermitteln
+        uint16_t minMeasuredDist = newDist;
+        uint8_t count = historyFilled ? N : historyIndex;
+        for (uint8_t i = 0; i < count; i++) {
+            if (distHistory[i] > 0 && distHistory[i] < minMeasuredDist) {
+                minMeasuredDist = distHistory[i];
             }
         }
-        else if (distanceTrafficLight && isOnGround)
+
+        // Der kleinste Wert wird als aktuelle Distanz verwendet
+        currentMeasuredDist = minMeasuredDist;
+        
+        if (currentMeasuredDist <= motionControl.stopdistance || !isOnGround)   
         {
-            applicationFunctionSet.isCustomColor = false;
-            distanceTrafficLight = false;
+            lightColor = CRGB::Red; 
         }
-
+        else if (currentMeasuredDist <= motionControl.reducedistance)
+        {
+            lightColor = CRGB::Yellow;
+        }
+        else
+        {
+            lightColor = CRGB::Green;
+        }
     }
-
+    if (lightColor != lightColorLast)
+        AppRGB_LED.SetRBGLED(4, lightColor); // Reset only once
+    lightColorLast = lightColor;
 }
 
 uint16_t ApplicationFunctionSet::getCurrentDistance() const { 
@@ -260,12 +274,6 @@ void ApplicationFunctionSet::processKeyCommand() {
             case 1:
                 currentState = State::TraceBased;
                 break;
-            case 2:
-                currentState = State::ObstacleAvoidance;
-                break;
-            case 3:
-                currentState = State::Follow;
-                break;
             default:
                 break;
         }
@@ -297,11 +305,6 @@ void ApplicationFunctionSet::analyzeSerialData(const JsonDocument &doc) {
             break;
         case 5: // Servo control / 舵机控制
             {
-                //currentState = State::DoNothing;
-                //uint8_t angle = doc["D2"].as<uint8_t>() / 10;
-                //AppServo.control(angle, 0);
-                //sendCommandResponse(true);
-
                 currentState = State::DoNothing;
                 uint8_t rawD2 = doc["D2"].as<uint8_t>();
                 
@@ -320,11 +323,7 @@ void ApplicationFunctionSet::analyzeSerialData(const JsonDocument &doc) {
             break;
         case 21: // Ultrasonic sensor status / 超声波传感器状态
             {
-                //currentState = State::DoNothing;
                 getUltrasonicStatus(doc["D1"].as<uint8_t>());
-
-                //Serial.println(currentMeasuredDist);
-
             }
             break;
             
@@ -349,9 +348,7 @@ void ApplicationFunctionSet::analyzeSerialData(const JsonDocument &doc) {
         case 101: // Mode switch command / 模式切换命令
             {
                 uint8_t mode = doc["D1"];
-                currentState = (mode == 1) ? State::TraceBased :
-                              (mode == 2) ? State::ObstacleAvoidance :
-                              (mode == 3) ? State::Follow : State::Standby;
+                currentState = (mode == 1) ? State::TraceBased : State::Standby;
                 sendCommandResponse(false);
             }
             break;
@@ -361,7 +358,6 @@ void ApplicationFunctionSet::analyzeSerialData(const JsonDocument &doc) {
                 rockerCarSpeed = doc["D2"].as<uint8_t>();
                 carDirection = static_cast<CarDirection>(rockerDirection);
                 currentState = (carDirection == stop_it) ? State::Standby : State::Rocker;
-                isIrRobotControl = false;
             }
             break;
 
@@ -398,25 +394,31 @@ void ApplicationFunctionSet::analyzeSerialData(const JsonDocument &doc) {
             }
             break;
 
-        case 107: // Gyro Telemetrie (Pitch & Roll driftfrei)
+        case 107: // Gyroscope & Temperature Telemetrie
             {
-                float pitch = 0, roll = 0;
-                AppMPU6050.getPitchRoll(&pitch, &roll);
-
+                float qw = 1.0f, qx = 0.0f, qy = 0.0f, qz = 0.0f;
+                AppMPU6050.getQuaternion(&qw, &qx, &qy, &qz);
+                
+                // Temperatur in °C abfragen
                 float tempC = AppMPU6050.getTemperature();
 
-                StaticJsonDocument<120> docResponse;
-                docResponse["H"] = "GYRO";
-                docResponse["D1"] = roll;  // Roll
-                docResponse["D2"] = pitch; // Pitch
-                docResponse["D3"] = 0;     // Kein Kompass -> Yaw bleibt 0
-                docResponse["temp"] = tempC;
+                // NaN / Inf Schutz
+                if (isnan(qw) || isinf(qw)) qw = 1.0f;
+                if (isnan(qx) || isinf(qx)) qx = 0.0f;
+                if (isnan(qy) || isinf(qy)) qy = 0.0f;
+                if (isnan(qz) || isinf(qz)) qz = 0.0f;
+                if (isnan(tempC) || isinf(tempC)) tempC = 0.0f;
 
-                String responseStr;
-                serializeJson(docResponse, responseStr);
+                // AVR-kompatible String-Formatierung
+                String responseStr = "{\"H\":\"GYRO\",\"qw\":" + String(qw, 4) + 
+                                    ",\"qx\":" + String(qx, 4) + 
+                                    ",\"qy\":" + String(qy, 4) + 
+                                    ",\"qz\":" + String(qz, 4) + 
+                                    ",\"temp\":" + String(tempC, 2) + "}";
                 Serial.println(responseStr);
             }
             break;
+
         case 110: // Clear all functions - do nothing / 清除所有功能 - 不做任何操作
             {
                 clearAllFunctions(State::DoNothing);
@@ -583,10 +585,9 @@ void ApplicationFunctionSet::clearAllFunctions(State newState) {
     
     // Stop motors and clear LEDs / 停止电机并清除 LED
     motionControl.SmartRobotCarMotionControl(stop_it, 0);
-    if (!isCustomColor) AppRGB_LED.clear();
+    //if (!isCustomColor) AppRGB_LED.clear();
     carDirection = stop_it;
-    currentState = newState;
-    isIrRobotControl = false;
+    currentState = newState;    
 }
 
 bool ApplicationFunctionSet::isWithinRange(long value, long start, long end) {
